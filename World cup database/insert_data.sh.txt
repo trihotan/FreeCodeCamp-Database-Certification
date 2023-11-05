@@ -1,0 +1,64 @@
+#! /bin/bash
+
+if [[ $1 == "test" ]]
+then
+  PSQL="psql --username=postgres --dbname=worldcuptest -t --no-align -c"
+else
+  PSQL="psql --username=freecodecamp --dbname=worldcup -t --no-align -c"
+fi
+
+# Do not change code above this line. Use the PSQL variable above to query your database.
+
+echo "$($PSQL "TRUNCATE teams, games;")"
+
+# read the lines from games.csv, YEAR ROUND WINNER OPPONENT WINNER_GOALS OPPONENT_GOALS
+cat games.csv | while IFS=',' read YEAR ROUND WINNER OPPONENT WINNER_GOALS OPPONENT_GOALS 
+do
+# Excluding the first row, header row
+if [[ $YEAR != "year" ]]
+then
+  # see if the winner is already in the team database 
+  # query for the winner
+  ID_FOR_WINNER=$($PSQL "SELECT team_id FROM teams WHERE name = '$WINNER';")
+  if [[ -z $ID_FOR_WINNER ]]
+  then
+  # if none was returned, add this winner team to the database
+    INSERT_WINNER=$($PSQL "INSERT INTO teams(name) VALUES('$WINNER');") 
+    if [[ $INSERT_WINNER == "INSERT 0 1" ]]
+    then
+      echo "Inserted team, $WINNER"
+    fi
+  fi
+  # get the corresponding id
+  ID_FOR_WINNER=$($PSQL "SELECT team_id FROM teams WHERE name = '$WINNER';")
+
+  # see if the opponent is already in the team database
+  # quey for the opponent
+  ID_FOR_OPPONENT=$($PSQL "SELECT team_id FROM teams WHERE name = '$OPPONENT';")
+  if [[ -z $ID_FOR_OPPONENT ]]
+  then
+  # if none was returned, add this opponent team to the database
+    INSERT_OPPONENT=$($PSQL "INSERT INTO teams(name) VALUES('$OPPONENT');") 
+    if [[ $INSERT_OPPONENT == "INSERT 0 1" ]]
+    then
+      echo "Inserted team, $OPPONENT"
+    fi
+  fi
+  # get the corresponding id
+  ID_FOR_OPPONENT=$($PSQL "SELECT team_id FROM teams WHERE name = '$OPPONENT';")
+
+  # See if the exact line was already in the database
+  #    query for the line
+  GAME=$($PSQL "SELECT * FROM games WHERE year = $YEAR AND round = '$ROUND' AND winner_id = $ID_FOR_WINNER AND opponent_id = $ID_FOR_OPPONENT AND winner_goals = $WINNER_GOALS AND opponent_goals = $OPPONENT_GOALS;")
+  #    if at least 1 observation was returned, skip the line
+  if [[ -z $GAME ]]
+  then
+  #    if no observation was returned, insert the data iN
+    INSERT_GAME=$($PSQL "INSERT INTO games(year, round, winner_id, opponent_id, winner_goals, opponent_goals) VALUES($YEAR, '$ROUND', $ID_FOR_WINNER, $ID_FOR_OPPONENT, $WINNER_GOALS, $OPPONENT_GOALS);")
+    if [[ $INSERT_GAME == "INSERT 0 1" ]]
+    then
+      echo "Inserted game, $YEAR $ROUND $WINNER $OPPONENT"
+    fi
+  fi
+fi
+done
